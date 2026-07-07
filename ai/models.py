@@ -1,18 +1,23 @@
 MODELS = [
 
-    # Самая качественная бесплатная модель
+    # Основная модель
     "openai/gpt-oss-120b:free",
 
-    # Очень хороший резерв
+    # Резерв 1
     "meta-llama/llama-3.3-70b-instruct:free",
 
-    # Хорошо пишет текст
+    # Резерв 2
     "google/gemma-4-31b:free",
 
-    # Еще один резерв
+    # Резерв 3
     "qwen/qwen3-next-80b-a3b-instruct:free",
 
-    # Последний резерв
+    # Резерв 4
     "nousresearch/hermes-3-405b-instruct:free",
 
 ]
+
+
+def get_model():
+
+    return MODELS[0]
