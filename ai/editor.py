@@ -1,12 +1,9 @@
-from ai.openrouter import rewrite
+async def edit(text: str):
 
-
-async def review(article):
     """
-    Редактор оценивает новость.
+    Финальный редактор.
 
-    Пока используем существующую функцию rewrite().
-    Позже здесь появится отдельный промпт редактора.
-    """
+    Пока просто возвращает текст без изменений.
 
-    return await rewrite(article)
+    Позже здесь появится:
+    -
