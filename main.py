@@ -1,3 +1,10 @@
+import asyncio
+
+from collectors.rss import get_news
+from telegram_bot.bot import bot
+from config import CHANNEL_ID
+
+
 async def main():
 
     news = get_news(limit=1)
@@ -10,8 +17,9 @@ async def main():
 
     text = f"""📰 {article['title']}
 
-🔗 Источник:
-{article['link']}"""
+Источник:
+{article['link']}
+"""
 
     await bot.send_message(
         CHANNEL_ID,
@@ -20,3 +28,7 @@ async def main():
     )
 
     print("Пост опубликован")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
