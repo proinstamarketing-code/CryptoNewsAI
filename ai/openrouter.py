@@ -1,10 +1,51 @@
 import httpx
 
-from config import OPENROUTER_API_KEY
 from ai.prompts import PROMPT
+from ai.models import MODELS
+
+from config import OPENROUTER_API_KEY
 
 
-MODEL = "openai/gpt-oss-120b:free"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+async def ask_model(model: str, prompt: str):
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        "temperature": 0.4,
+    }
+
+    async with httpx.AsyncClient(timeout=90) as client:
+
+        response = await client.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+        )
+
+        print(f"{model} -> {response.status_code}")
+
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+
+        try:
+            return data["choices"][0]["message"]["content"]
+        except Exception:
+            return None
 
 
 async def rewrite(article):
@@ -12,73 +53,43 @@ async def rewrite(article):
     prompt = PROMPT.format(
         news=f"""
 Заголовок:
-{article.get("title", "")}
+{article.get("title","")}
 
-Краткое описание:
-{article.get("summary", "")}
+Описание:
+{article.get("summary","")}
 
-Полный текст статьи:
-
-{article.get("content", "")}
+Полный текст:
+{article.get("content","")}
 """
     )
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com",
-        "X-Title": "CryptoNewsAI",
-    }
+    for model in MODELS:
 
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1200,
-    }
+        try:
 
-    try:
+            print(f"Пробуем модель: {model}")
 
-        async with httpx.AsyncClient(timeout=90) as client:
+            result = await ask_model(model, prompt)
 
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+            if result:
 
-            print("STATUS:", response.status_code)
+                print(f"Успешно: {model}")
 
-            response.raise_for_status()
+                if "PUBLISH: NO" in result:
+                    return None
 
-            data = response.json()
+                if "TEXT:" in result:
+                    return result.split("TEXT:", 1)[1].strip()
 
-            print(data)
+                return result.strip()
 
-            answer = data["choices"][0]["message"]["content"]
+        except Exception as e:
 
-            if not answer:
-                return None
+            print(model)
+            print(e)
 
-            # ИИ решил пропустить новость
-            if "PUBLISH: NO" in answer:
-                print("Новость отклонена редактором ИИ")
-                return None
+            continue
 
-            # Берем только текст после TEXT:
-            if "TEXT:" in answer:
-                answer = answer.split("TEXT:", 1)[1].strip()
+    print("Ни одна модель не ответила.")
 
-            return answer
-
-    except Exception as e:
-
-        print("OPENROUTER ERROR")
-        print(e)
-
-        return None
+    return None
