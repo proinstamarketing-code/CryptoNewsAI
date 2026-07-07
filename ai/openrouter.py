@@ -4,7 +4,7 @@ from config import OPENROUTER_API_KEY
 from ai.prompts import PROMPT
 
 
-MODEL = "google/gemma-3-27b-it:free"
+MODEL = "openai/gpt-oss-120b:free"
 
 
 async def rewrite(article):
