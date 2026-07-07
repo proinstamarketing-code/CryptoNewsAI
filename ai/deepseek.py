@@ -8,7 +8,7 @@ async def rewrite(news):
 
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
 
     payload = {
@@ -16,9 +16,10 @@ async def rewrite(news):
         "messages": [
             {
                 "role": "user",
-                "content": PROMPT.format(news=news)
+                "content": PROMPT.format(news=news),
             }
-        ]
+        ],
+        "temperature": 0.7,
     }
 
     async with httpx.AsyncClient(timeout=60) as client:
@@ -29,18 +30,17 @@ async def rewrite(news):
             json=payload,
         )
 
+        print("=" * 60)
         print("STATUS:", response.status_code)
-        print("ANSWER:", response.text)
+        print(response.text)
+        print("=" * 60)
 
-        response.raise_for_status()
+        try:
+            data = response.json()
+        except Exception:
+            return f"DeepSeek вернул не JSON:\n{response.text}"
 
-        data = response.json()
+        if "choices" not in data:
+            return f"Ошибка DeepSeek:\n{data}"
 
-data = response.json()
-
-print(data)
-
-if "choices" not in data:
-    raise Exception(data)
-
-return data["choices"][0]["message"]["content"]
+        return data["choices"][0]["message"]["content"]
