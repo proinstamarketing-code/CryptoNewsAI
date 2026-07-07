@@ -1,4 +1,7 @@
+import os
 import sqlite3
+
+os.makedirs("data", exist_ok=True)
 
 DB = "data/news.db"
 
@@ -9,16 +12,13 @@ def init_db():
 
     cur = conn.cursor()
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS news(
             link TEXT PRIMARY KEY
         )
-        """
-    )
+    """)
 
     conn.commit()
-
     conn.close()
 
 
@@ -52,5 +52,4 @@ def save(link):
     )
 
     conn.commit()
-
     conn.close()
