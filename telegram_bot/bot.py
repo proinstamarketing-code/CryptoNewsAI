@@ -2,7 +2,13 @@ from aiogram import Bot
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-from config import BOT_TOKEN
+from config import (
+    BOT_TOKEN,
+    MODERATION_GROUP_ID,
+)
+
+from telegram_bot.keyboards import moderation_keyboard
+
 
 bot = Bot(
     token=BOT_TOKEN,
@@ -13,14 +19,10 @@ bot = Bot(
 
 
 async def send_to_moderation(text: str):
-    """
-    Пока просто отправляем текст в группу модерации.
-    Позже сюда добавим кнопки.
-    """
-    from config import MODERATION_GROUP_ID
 
     await bot.send_message(
         chat_id=MODERATION_GROUP_ID,
         text=text,
         disable_web_page_preview=True,
+        reply_markup=moderation_keyboard(),
     )

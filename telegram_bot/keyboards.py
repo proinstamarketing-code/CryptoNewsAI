@@ -3,23 +3,23 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 def moderation_keyboard():
 
-    kb = InlineKeyboardBuilder()
+    builder = InlineKeyboardBuilder()
 
-    kb.button(
+    builder.button(
         text="✅ Опубликовать",
-        callback_data="publish"
+        callback_data="publish",
     )
 
-    kb.button(
+    builder.button(
         text="✏️ Редактировать",
-        callback_data="edit"
+        callback_data="edit",
     )
 
-    kb.button(
+    builder.button(
         text="❌ Отклонить",
-        callback_data="delete"
+        callback_data="reject",
     )
 
-    kb.adjust(1)
+    builder.adjust(1)
 
-    return kb.as_markup()
+    return builder.as_markup()
