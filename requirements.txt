@@ -1,4 +1,9 @@
-aiogram==3.21.0
-feedparser==6.0.11
-httpx==0.28.1
-python-dotenv==1.1.1
+aiogram==3.29.1
+aiohttp
+httpx
+feedparser
+beautifulsoup4
+python-dotenv
+apscheduler
+aiosqlite
+Pillow

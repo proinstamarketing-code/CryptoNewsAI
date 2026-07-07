@@ -1,33 +1,35 @@
 import asyncio
 
 from collectors.rss import get_news
-from telegram_bot.bot import bot
-from config import CHANNEL_ID
+from ai.openrouter import rewrite
+from telegram_bot.bot import send_to_moderation
+
+from database import init_db, exists, save
 
 
 async def main():
 
-    news = get_news(limit=1)
+    init_db()
+
+    news = get_news(limit=5)
 
     if not news:
         print("Новостей нет")
         return
 
-    article = news[0]
+    for article in news:
 
-    text = f"""📰 {article['title']}
+        if exists(article["link"]):
+            print("Новость уже опубликована")
+            continue
 
-Источник:
-{article['link']}
-"""
+        text = await rewrite(article)
 
-    await bot.send_message(
-        CHANNEL_ID,
-        text,
-        disable_web_page_preview=False,
-    )
+        await send_to_moderation(text)
 
-    print("Пост опубликован")
+        save(article["link"])
+
+        print("Отправлено на модерацию")
 
 
 if __name__ == "__main__":
