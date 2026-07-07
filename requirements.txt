@@ -7,3 +7,5 @@ python-dotenv
 apscheduler
 aiosqlite
 Pillow
+newspaper4k
+lxml[html_clean]

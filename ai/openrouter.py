@@ -4,7 +4,7 @@ from config import OPENROUTER_API_KEY
 from ai.prompts import PROMPT
 
 
-MODEL = "openrouter/free"
+MODEL = "google/gemma-3-27b-it:free"
 
 
 async def rewrite(article):
@@ -12,17 +12,21 @@ async def rewrite(article):
     prompt = PROMPT.format(
         news=f"""
 Заголовок:
-{article['title']}
+{article.get("title", "")}
 
-Описание:
-{article.get('summary', '')}
+Краткое описание:
+{article.get("summary", "")}
+
+Полный текст статьи:
+
+{article.get("content", "")}
 """
     )
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/proinstamarketing-code/CryptoNewsAI",
+        "HTTP-Referer": "https://github.com",
         "X-Title": "CryptoNewsAI",
     }
 
@@ -34,8 +38,8 @@ async def rewrite(article):
                 "content": prompt,
             }
         ],
-        "temperature": 0.4,
-        "max_tokens": 700,
+        "temperature": 0.3,
+        "max_tokens": 1200,
     }
 
     try:
@@ -48,29 +52,33 @@ async def rewrite(article):
                 json=payload,
             )
 
+            print("STATUS:", response.status_code)
+
             response.raise_for_status()
 
             data = response.json()
 
-            print("=" * 80)
             print(data)
-            print("=" * 80)
 
-            choice = data["choices"][0]
-            message = choice.get("message", {})
+            answer = data["choices"][0]["message"]["content"]
 
-            text = message.get("content")
+            if not answer:
+                return None
 
-            if text and text.strip():
-                return text.strip()
+            # ИИ решил пропустить новость
+            if "PUBLISH: NO" in answer:
+                print("Новость отклонена редактором ИИ")
+                return None
 
-            print("OpenRouter не вернул content.")
+            # Берем только текст после TEXT:
+            if "TEXT:" in answer:
+                answer = answer.split("TEXT:", 1)[1].strip()
 
-            return f"""📰 {article['title']}"""
+            return answer
 
     except Exception as e:
 
-        print("Ошибка OpenRouter:")
+        print("OPENROUTER ERROR")
         print(e)
 
-        return f"""📰 {article['title']}"""
+        return None

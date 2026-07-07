@@ -20,9 +20,11 @@ bot = Bot(
 
 async def send_to_moderation(text: str):
 
-    await bot.send_message(
+    message = await bot.send_message(
         chat_id=MODERATION_GROUP_ID,
         text=text,
         disable_web_page_preview=True,
         reply_markup=moderation_keyboard(),
     )
+
+    return message
