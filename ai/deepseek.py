@@ -36,4 +36,11 @@ async def rewrite(news):
 
         data = response.json()
 
-        return data["choices"][0]["message"]["content"]
+data = response.json()
+
+print(data)
+
+if "choices" not in data:
+    raise Exception(data)
+
+return data["choices"][0]["message"]["content"]
