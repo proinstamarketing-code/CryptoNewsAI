@@ -1,95 +1,90 @@
 import httpx
 
-from ai.prompts import PROMPT
-from ai.models import MODELS
-
 from config import OPENROUTER_API_KEY
+from ai.prompts import PROMPT
+from ai.models import get_model
 
 
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
+async def rewrite(article, analysis):
 
+    prompt = PROMPT.format(
+        news=f"""
+Заголовок:
+{article["title"]}
 
-async def ask_model(model: str, prompt: str):
+Описание:
+{article["summary"]}
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
+========================
+АНАЛИЗ
+========================
+
+Важность:
+{analysis.get("score", 5)}/10
+
+Категория:
+{analysis.get("category", "Crypto")}
+
+Аудитория:
+{", ".join(analysis.get("audience", []))}
+
+Хештеги:
+{", ".join(analysis.get("tags", []))}
+"""
+    )
 
     payload = {
-        "model": model,
+        "model": get_model(),
         "messages": [
             {
                 "role": "user",
                 "content": prompt,
             }
         ],
-        "temperature": 0.4,
+        "temperature": 0.6,
+        "max_tokens": 1200,
     }
 
-    async with httpx.AsyncClient(timeout=90) as client:
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
 
-        response = await client.post(
-            API_URL,
-            headers=headers,
-            json=payload,
-        )
+    try:
 
-        print(f"{model} -> {response.status_code}")
+        async with httpx.AsyncClient(timeout=90) as client:
 
-        if response.status_code != 200:
-            return None
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+            )
 
-        data = response.json()
+            print("MODEL:", payload["model"])
+            print("STATUS:", response.status_code)
 
-        try:
-            return data["choices"][0]["message"]["content"]
-        except Exception:
-            return None
+            response.raise_for_status()
 
+            data = response.json()
 
-async def rewrite(article):
+            message = data["choices"][0]["message"]
 
-    prompt = PROMPT.format(
-        news=f"""
-Заголовок:
-{article.get("title","")}
+            text = message.get("content")
 
-Описание:
-{article.get("summary","")}
+            if not text:
+                print("Пустой ответ модели.")
+                return "SKIP"
 
-Полный текст:
-{article.get("content","")}
-"""
-    )
+            text = text.strip()
 
-    for model in MODELS:
+            if text.upper() == "SKIP":
+                return "SKIP"
 
-        try:
+            return text
 
-            print(f"Пробуем модель: {model}")
+    except Exception as e:
 
-            result = await ask_model(model, prompt)
+        print("OPENROUTER ERROR")
+        print(e)
 
-            if result:
-
-                print(f"Успешно: {model}")
-
-                if "PUBLISH: NO" in result:
-                    return None
-
-                if "TEXT:" in result:
-                    return result.split("TEXT:", 1)[1].strip()
-
-                return result.strip()
-
-        except Exception as e:
-
-            print(model)
-            print(e)
-
-            continue
-
-    print("Ни одна модель не ответила.")
-
-    return None
+        return "SKIP"

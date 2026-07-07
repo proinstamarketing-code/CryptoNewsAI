@@ -1,24 +1,24 @@
 import asyncio
 
 from collectors.rss import get_news
-from collectors.article import get_article_text
+from database import exists, save
 
-from ai.editor import review
+from ai.analyzer import analyze
+from ai.openrouter import rewrite
+from ai.editor import edit
 
 from telegram_bot.bot import send_to_moderation
-
-from database import init_db, exists, save
 
 
 async def main():
 
-    init_db()
-
-    news = get_news(limit=20)
+    news = get_news()
 
     if not news:
-        print("Новостей нет")
+        print("Новости не найдены.")
         return
+
+    sent = 0
 
     for article in news:
 
@@ -27,30 +27,53 @@ async def main():
 
         print(f"Проверяем: {article['title']}")
 
-        full_text = get_article_text(article["link"])
+        # Анализируем новость
+        analysis = await analyze(article)
 
-        article["content"] = full_text[:5000]
+        if not analysis.get("publish", True):
 
-        text = await review(article)
+            print("Аналитик решил пропустить новость.")
 
-        if text is None:
-
-            print("Редактор отклонил новость.")
+            save(article["link"])
 
             continue
 
+        # Пишем статью с учетом анализа
+        text = await rewrite(article, analysis)
+
+        if text == "SKIP":
+
+            print("Автор решил пропустить новость.")
+
+            save(article["link"])
+
+            continue
+
+        # Финальная редактура
+        text = await edit(text)
+
+        if text == "SKIP":
+
+            print("Редактор отклонил новость.")
+
+            save(article["link"])
+
+            continue
+
+        # Отправка на модерацию
         await send_to_moderation(text)
 
         save(article["link"])
 
-        print("Отправлено в модерацию.")
+        sent += 1
 
-        break
+        print("✅ Новость отправлена на модерацию.")
 
-    else:
+        await asyncio.sleep(5)
 
-        print("Подходящих новостей нет.")
+    print(f"\nГотово. Отправлено новостей: {sent}")
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())
