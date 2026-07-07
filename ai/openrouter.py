@@ -38,23 +38,39 @@ async def rewrite(article):
         "max_tokens": 700,
     }
 
-    async with httpx.AsyncClient(timeout=90) as client:
+    try:
 
-        response = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            json=payload,
-        )
+        async with httpx.AsyncClient(timeout=90) as client:
 
-        response.raise_for_status()
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+            )
 
-        data = response.json()
+            response.raise_for_status()
 
-        message = data["choices"][0]["message"]
+            data = response.json()
 
-        text = message.get("content")
+            print("=" * 80)
+            print(data)
+            print("=" * 80)
 
-        if text:
-            return text.strip()
+            choice = data["choices"][0]
+            message = choice.get("message", {})
+
+            text = message.get("content")
+
+            if text and text.strip():
+                return text.strip()
+
+            print("OpenRouter не вернул content.")
+
+            return f"""📰 {article['title']}"""
+
+    except Exception as e:
+
+        print("Ошибка OpenRouter:")
+        print(e)
 
         return f"""📰 {article['title']}"""
