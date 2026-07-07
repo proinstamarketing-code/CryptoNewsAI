@@ -4,7 +4,7 @@ from config import OPENROUTER_API_KEY
 from ai.prompts import PROMPT
 
 
-MODEL = "deepseek/deepseek-chat-v3-0324:free"
+MODEL = "openrouter/free"
 
 
 async def rewrite(article):
@@ -15,7 +15,7 @@ async def rewrite(article):
 {article['title']}
 
 Описание:
-{article['summary']}
+{article.get('summary', '')}
 """
     )
 
@@ -35,9 +35,10 @@ async def rewrite(article):
             }
         ],
         "temperature": 0.5,
+        "max_tokens": 900,
     }
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with httpx.AsyncClient(timeout=90) as client:
 
         response = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
