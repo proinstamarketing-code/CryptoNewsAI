@@ -2,26 +2,32 @@ import asyncio
 
 from collectors.rss import get_news
 from ai.openrouter import rewrite
+
 from telegram_bot.bot import send_to_moderation
 
-from database import init_db, exists, save
+from database import (
+    init_db,
+    exists,
+    save,
+)
 
 
 async def main():
 
     init_db()
 
-    news = get_news(limit=5)
+    news = get_news(limit=10)
 
     if not news:
-        print("Новостей нет")
+        print("Новостей нет.")
         return
 
     for article in news:
 
         if exists(article["link"]):
-            print("Новость уже опубликована")
             continue
+
+        print(f"Найдена новая новость: {article['title']}")
 
         text = await rewrite(article)
 
@@ -29,7 +35,12 @@ async def main():
 
         save(article["link"])
 
-        print("Отправлено на модерацию")
+        print("Отправлено на модерацию.")
+
+        break
+
+    else:
+        print("Новых новостей нет.")
 
 
 if __name__ == "__main__":

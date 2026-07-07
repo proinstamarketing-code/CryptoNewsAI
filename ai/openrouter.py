@@ -34,8 +34,8 @@ async def rewrite(article):
                 "content": prompt,
             }
         ],
-        "temperature": 0.5,
-        "max_tokens": 900,
+        "temperature": 0.4,
+        "max_tokens": 700,
     }
 
     async with httpx.AsyncClient(timeout=90) as client:
@@ -46,11 +46,15 @@ async def rewrite(article):
             json=payload,
         )
 
-        print("STATUS:", response.status_code)
-        print(response.text)
-
         response.raise_for_status()
 
         data = response.json()
 
-        return data["choices"][0]["message"]["content"]
+        message = data["choices"][0]["message"]
+
+        text = message.get("content")
+
+        if text:
+            return text.strip()
+
+        return f"""📰 {article['title']}"""
