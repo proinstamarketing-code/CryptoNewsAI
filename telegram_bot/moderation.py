@@ -1,8 +1,8 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from bot import bot
 from config import CHANNEL_ID
+from telegram_bot.bot import publish_to_channel
 
 router = Router()
 
@@ -12,29 +12,32 @@ async def publish(callback: CallbackQuery):
 
     text = callback.message.text
 
-    await bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=text,
-        disable_web_page_preview=True,
+    await publish_to_channel(
+        CHANNEL_ID,
+        text,
     )
 
-    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.edit_reply_markup()
 
-    await callback.answer("✅ Новость опубликована")
+    await callback.answer(
+        "✅ Новость опубликована"
+    )
 
 
 @router.callback_query(F.data == "reject")
 async def reject(callback: CallbackQuery):
 
-    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.edit_reply_markup()
 
-    await callback.answer("❌ Новость отклонена")
+    await callback.answer(
+        "❌ Новость отклонена"
+    )
 
 
 @router.callback_query(F.data == "edit")
 async def edit(callback: CallbackQuery):
 
     await callback.answer(
-        "✏️ Редактирование появится на следующем этапе",
+        "✏️ Редактор появится в следующей версии",
         show_alert=True,
     )

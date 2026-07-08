@@ -1,105 +1,107 @@
-import json
-import httpx
-
-from config import OPENROUTER_API_KEY
-from ai.models import get_model
+import re
 
 
-ANALYZER_PROMPT = """
-Ты — финансовый аналитик.
+IMPORTANT_WORDS = [
 
-Твоя задача — решить, стоит ли публиковать новость
-в профессиональном Telegram-канале для трейдеров.
+    "bitcoin",
+    "btc",
+    "ethereum",
+    "eth",
+    "sec",
+    "etf",
+    "fed",
+    "fomc",
+    "inflation",
+    "cpi",
+    "interest rate",
+    "rate",
+    "tariff",
+    "trump",
+    "treasury",
+    "mica",
+    "blackrock",
+    "fidelity",
+    "strategy",
+    "microstrategy",
+    "ripple",
+    "xrp",
+    "binance",
+    "coinbase",
+    "bybit",
+    "stablecoin",
+    "tokenized",
+    "gold",
+    "oil",
+    "nasdaq",
+    "s&p",
+    "forex",
 
-Отвечай только JSON.
-
-Формат:
-
-{
-  "publish": true,
-  "score": 9,
-  "category": "ETF",
-  "audience": [
-    "Инвесторы",
-    "Трейдеры"
-  ],
-  "tags": [
-    "Bitcoin",
-    "ETF",
-    "BlackRock"
-  ]
-}
-
-Если новость не имеет большого значения,
-верни
-
-{
-  "publish": false
-}
-
-Не добавляй никаких пояснений.
-
-Новость:
-
-{news}
-"""
+]
 
 
-async def analyze(article):
+def analyze(article):
 
-    prompt = ANALYZER_PROMPT.format(
-        news=f"""
-Заголовок:
-{article["title"]}
+    text = f"""
+{article.get("title","")}
 
-Описание:
-{article["summary"]}
-"""
-    )
+{article.get("summary","")}
+""".lower()
 
-    payload = {
-        "model": get_model(),
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-        "temperature": 0.2,
+    score = 3
+
+    found = []
+
+    for word in IMPORTANT_WORDS:
+
+        if word in text:
+
+            found.append(word)
+
+            score += 1
+
+    score = min(score, 10)
+
+    category = "Crypto"
+
+    if any(x in text for x in ["gold", "oil", "forex", "nasdaq", "s&p"]):
+
+        category = "Macro"
+
+    elif any(x in text for x in ["sec", "mica", "law", "court"]):
+
+        category = "Regulation"
+
+    elif any(x in text for x in ["bitcoin", "ethereum", "btc", "eth"]):
+
+        category = "Market"
+
+    audience = [
+
+        "Инвесторы",
+        "Трейдеры",
+
+    ]
+
+    tags = []
+
+    for word in found[:5]:
+
+        tag = "#" + re.sub(r"[^a-zA-Z0-9]", "", word.title())
+
+        if tag not in tags:
+
+            tags.append(tag)
+
+    return {
+
+        "publish": score >= 5,
+
+        "score": score,
+
+        "category": category,
+
+        "audience": audience,
+
+        "tags": tags,
+
     }
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    try:
-
-        async with httpx.AsyncClient(timeout=90) as client:
-
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-            content = data["choices"][0]["message"]["content"]
-
-            return json.loads(content)
-
-    except Exception as e:
-
-        print("ANALYZER ERROR")
-        print(e)
-
-        return {
-            "publish": True,
-            "score": 5,
-            "category": "Crypto",
-            "audience": [],
-            "tags": []
-        }

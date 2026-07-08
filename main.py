@@ -1,7 +1,12 @@
 import asyncio
 
 from collectors.rss import get_news
-from database import exists, save
+
+from database import (
+    init_db,
+    exists,
+    save,
+)
 
 from ai.analyzer import analyze
 from ai.openrouter import rewrite
@@ -12,10 +17,15 @@ from telegram_bot.bot import send_to_moderation
 
 async def main():
 
+    # Создаем БД и таблицу при каждом запуске
+    init_db()
+
     news = get_news()
 
     if not news:
+
         print("Новости не найдены.")
+
         return
 
     sent = 0
@@ -23,55 +33,58 @@ async def main():
     for article in news:
 
         if exists(article["link"]):
+
             continue
 
-        print(f"Проверяем: {article['title']}")
+        print("=" * 60)
+        print("Проверяем:", article["title"])
 
-        # Анализируем новость
-        analysis = await analyze(article)
+        # Аналитик
+        analysis = analyze(article)
 
-        if not analysis.get("publish", True):
+        if not analysis["publish"]:
 
-            print("Аналитик решил пропустить новость.")
+            print("⛔ Аналитик отклонил новость.")
 
             save(article["link"])
 
             continue
 
-        # Пишем статью с учетом анализа
+        # Автор
         text = await rewrite(article, analysis)
 
         if text == "SKIP":
 
-            print("Автор решил пропустить новость.")
+            print("✍ Автор решил пропустить.")
 
             save(article["link"])
 
             continue
 
-        # Финальная редактура
+        # Редактор
         text = await edit(text)
 
         if text == "SKIP":
 
-            print("Редактор отклонил новость.")
+            print("📝 Редактор отклонил.")
 
             save(article["link"])
 
             continue
 
-        # Отправка на модерацию
+        # Модерация
         await send_to_moderation(text)
 
         save(article["link"])
 
         sent += 1
 
-        print("✅ Новость отправлена на модерацию.")
+        print("✅ Отправлено на модерацию.")
 
         await asyncio.sleep(5)
 
-    print(f"\nГотово. Отправлено новостей: {sent}")
+    print("=" * 60)
+    print(f"Готово. Отправлено новостей: {sent}")
 
 
 if __name__ == "__main__":
