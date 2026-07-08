@@ -53,13 +53,28 @@ async def main():
         # Автор
         text = await rewrite(article, analysis)
 
+        # Если OpenRouter недоступен — отправляем черновик
         if text == "SKIP":
 
-            print("✍ Автор решил пропустить.")
+            print("⚠ OpenRouter недоступен. Отправляем черновик.")
 
-            save(article["link"])
+            text = f"""
+⚠️ Черновик (ИИ временно недоступен)
 
-            continue
+📰 {article["title"]}
+
+━━━━━━━━━━━━━━━━━━
+
+{article["summary"]}
+
+━━━━━━━━━━━━━━━━━━
+
+📊 Оценка аналитика: {analysis.get("score", 0)}/10
+📂 Категория: {analysis.get("category", "Crypto")}
+
+🔗 Источник:
+{article["link"]}
+"""
 
         # Редактор
         text = await edit(text)
