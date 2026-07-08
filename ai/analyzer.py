@@ -36,6 +36,19 @@ HIGH_IMPORTANCE = [
     "nasdaq",
     "s&p",
     "forex",
+
+    # Новые важные темы
+    "spacex",
+    "tesla",
+    "kazakhstan",
+    "adoption",
+    "wallet",
+    "treasury",
+    "institutional",
+    "reserve",
+    "liquidity",
+    "cbdc",
+    "token",
 ]
 
 # Слова, повышающие значимость
@@ -59,9 +72,18 @@ IMPORTANT_EVENTS = [
     "reserve",
     "treasury",
     "partnership",
+
+    # Новые события
+    "adoption",
+    "decree",
+    "signs",
+    "announces",
+    "investment",
+    "institutional",
+    "listing",
 ]
 
-# Темы, которые чаще всего являются "шумом"
+# Темы, которые чаще всего являются шумом
 LOW_PRIORITY = [
     "podcast",
     "interview",
@@ -96,7 +118,7 @@ def analyze(article):
         if word in text:
             score += 2
 
-    # Понижаем рейтинг "шума"
+    # Понижаем рейтинг шума
     for word in LOW_PRIORITY:
         if word in text:
             score -= 3
@@ -106,16 +128,38 @@ def analyze(article):
     # Категория
     category = "Crypto"
 
-    if any(x in text for x in ["fed", "inflation", "cpi", "oil", "gold", "nasdaq", "forex"]):
+    if any(x in text for x in [
+        "fed",
+        "inflation",
+        "cpi",
+        "oil",
+        "gold",
+        "nasdaq",
+        "forex",
+    ]):
         category = "Macro"
 
-    elif any(x in text for x in ["sec", "court", "regulation", "license", "mica"]):
+    elif any(x in text for x in [
+        "sec",
+        "court",
+        "regulation",
+        "license",
+        "mica",
+    ]):
         category = "Regulation"
 
-    elif any(x in text for x in ["bitcoin", "btc", "ethereum", "eth"]):
+    elif any(x in text for x in [
+        "bitcoin",
+        "btc",
+        "ethereum",
+        "eth",
+    ]):
         category = "Market"
 
-    elif any(x in text for x in ["hack", "exploit"]):
+    elif any(x in text for x in [
+        "hack",
+        "exploit",
+    ]):
         category = "Security"
 
     audience = []
@@ -141,8 +185,8 @@ def analyze(article):
         if tag not in tags:
             tags.append(tag)
 
-    # Публикуем только действительно важные новости
-    publish = score >= 6
+    # Новый порог публикации
+    publish = score >= 4
 
     print(
         f"Оценка: {score}/10 | "
