@@ -44,10 +44,7 @@ async def main():
         print("=" * 70)
         print("Проверяем:", article["title"])
 
-        # -------------------------------------------------
-        # Загружаем полный текст статьи
-        # -------------------------------------------------
-
+        # Загружаем полную статью
         article["content"] = await load_article(
             article["link"],
             article["summary"],
@@ -57,62 +54,35 @@ async def main():
             f"Длина статьи: {len(article['content'])} символов"
         )
 
-        # -------------------------------------------------
-        # Аналитик
-        # -------------------------------------------------
-
+        # Анализ
         analysis = analyze(article)
 
-        if not analysis["publish"]:
+        print(
+            f"Оценка: {analysis['score']}/10 | "
+            f"Категория: {analysis['category']}"
+        )
 
-            print("⛔ Аналитик отклонил.")
-
-            save(
-                link=article["link"],
-                title=article.get("title", ""),
-                category=analysis.get("category", ""),
-                published_at=article.get("published", ""),
-            )
-
-            continue
-
+        # Генерация статьи
         print("✍ Генерация статьи...")
 
         text = await rewrite(article, analysis)
 
-        # -------------------------------------------------
-        # Если OpenRouter недоступен
-        # -------------------------------------------------
-
+        # Если OpenRouter не ответил — просто пропускаем
         if text == "SKIP":
 
-            print("⚠ OpenRouter недоступен.")
+            print("⚠ OpenRouter недоступен. Новость пропущена.")
 
-            text = f"""⚠️ <b>Черновик (ИИ временно недоступен)</b>
+            continue
 
-📰 <b>{article['title']}</b>
+        # Редактор
+        print("📝 Редактор...")
 
-{article['summary']}
+        edited = await edit(text)
 
-📊 <b>Оценка:</b> {analysis.get("score",0)}/10
-📂 <b>Категория:</b> {analysis.get("category","Crypto")}
-
-🔗 {article["link"]}
-"""
-
+        if edited != "SKIP":
+            text = edited
         else:
-
-            print("📝 Редактор...")
-
-            edited = await edit(text)
-
-            if edited != "SKIP":
-
-                text = edited
-
-            else:
-
-                print("Редактор недоступен. Используем текст автора.")
+            print("Редактор недоступен. Используем текст автора.")
 
         print("📨 Отправка на модерацию...")
 
