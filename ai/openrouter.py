@@ -29,14 +29,32 @@ async def rewrite(article, analysis):
     prompt = PROMPT.format(
         news=f"""
 Источник:
-{article.get("source","")}
+{article.get("source", "")}
 
 Заголовок:
-{article.get("title","")}
+{article["title"]}
 
 Полный текст статьи:
 
 {content}
+
+========================================
+
+АНАЛИЗ
+
+========================================
+
+Важность:
+{analysis.get("score", 5)}/10
+
+Категория:
+{analysis.get("category", "Crypto")}
+
+Аудитория:
+{", ".join(analysis.get("audience", []))}
+
+Хештеги:
+{", ".join(analysis.get("tags", []))}
 """
     )
 
@@ -80,49 +98,53 @@ async def rewrite(article, analysis):
 
                     print(f"STATUS: {status}")
 
+                    # --------------------------------------------------
+                    # Успех
+                    # --------------------------------------------------
+
                     if status == 200:
 
                         data = response.json()
 
-                        message = (
-                            data.get("choices", [{}])[0]
-                            .get("message", {})
-                        )
-
-                        content = message.get("content")
-
-                        # Иногда OpenRouter возвращает null
-                        if content is None:
-
-                            print("⚠ Пустой content от модели.")
-
-                            await asyncio.sleep(2)
-
+                        try:
+                            message = data["choices"][0]["message"]
+                        except Exception:
+                            print("⚠ Некорректный ответ OpenRouter")
                             continue
 
-                        text = content.strip()
+                        text = message.get("content")
+
+                        if text is None:
+                            print("⚠ Пустой content от модели.")
+                            await asyncio.sleep(2)
+                            continue
+
+                        text = str(text).strip()
 
                         if not text:
-
                             print("⚠ Пустой текст.")
-
                             await asyncio.sleep(2)
-
                             continue
 
-                        if text.upper() == "SKIP":
+                        if len(text) > 3500:
+                            text = text[:3500]
 
+                        if text.upper() == "SKIP":
                             return "SKIP"
 
                         print(f"✅ Использована модель {model}")
 
                         return text
 
+                    # --------------------------------------------------
+
                     if status == 404:
 
                         print("Модель недоступна.")
 
                         break
+
+                    # --------------------------------------------------
 
                     if status in RETRY_STATUS:
 
@@ -150,9 +172,11 @@ async def rewrite(article, analysis):
 
                     print(e)
 
+                    text = str(e)
+
                     if (
-                        "429" in str(e)
-                        or "No provider available" in str(e)
+                        "No provider available" in text
+                        or "429" in text
                     ):
 
                         if attempt < 3:
@@ -167,10 +191,10 @@ async def rewrite(article, analysis):
 
                     break
 
-            print("➡ Следующая модель...")
+            print("➡ Переходим к следующей модели...")
 
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
 
-    print("\n❌ Ни одна модель не ответила.")
+    print("\n❌ Ни одна модель OpenRouter не ответила.")
 
     return "SKIP"

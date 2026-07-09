@@ -23,9 +23,7 @@ async def main():
     news = get_news()
 
     if not news:
-
         print("Новости не найдены.")
-
         return
 
     print(f"Получено новостей: {len(news)}")
@@ -44,7 +42,6 @@ async def main():
         print("=" * 70)
         print("Проверяем:", article["title"])
 
-        # Загружаем полную статью
         article["content"] = await load_article(
             article["link"],
             article["summary"],
@@ -54,39 +51,58 @@ async def main():
             f"Длина статьи: {len(article['content'])} символов"
         )
 
-        # Анализ
         analysis = analyze(article)
 
         print(
-            f"Оценка: {analysis['score']}/10 | "
-            f"Категория: {analysis['category']}"
+            f"Оценка: {analysis['score']}/10 | Категория: {analysis['category']}"
         )
 
-        # Генерация статьи
         print("✍ Генерация статьи...")
 
         text = await rewrite(article, analysis)
 
-        # Если OpenRouter не ответил — просто пропускаем
         if text == "SKIP":
 
-            print("⚠ OpenRouter недоступен. Новость пропущена.")
+            print("⚠ OpenRouter недоступен.")
 
-            continue
+            text = f"""📰 {article['title']}
 
-        # Редактор
-        print("📝 Редактор...")
+{article['summary']}
 
-        edited = await edit(text)
+━━━━━━━━━━━━━━
 
-        if edited != "SKIP":
-            text = edited
+🔗 Источник:
+{article['link']}
+"""
+
         else:
-            print("Редактор недоступен. Используем текст автора.")
+
+            print("📝 Редактор...")
+
+            edited = await edit(text)
+
+            if edited != "SKIP":
+                text = edited
+
+            # добавляем источник только если его ещё нет
+            if "Источник" not in text:
+                text += f"""
+
+━━━━━━━━━━━━━━
+
+🔗 Источник:
+{article['link']}
+"""
 
         print("📨 Отправка на модерацию...")
 
-        await send_to_moderation(text)
+        message = await send_to_moderation(text)
+
+        if message is None:
+
+            print("❌ Новость НЕ отправлена")
+
+            continue
 
         save(
             link=article["link"],
@@ -97,7 +113,7 @@ async def main():
 
         sent += 1
 
-        print("✅ Отправлено.")
+        print("✅ Успешно отправлено")
 
         await asyncio.sleep(5)
 
@@ -106,5 +122,4 @@ async def main():
 
 
 if __name__ == "__main__":
-
     asyncio.run(main())
