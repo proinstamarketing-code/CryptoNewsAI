@@ -1,26 +1,49 @@
+import asyncio
 import httpx
 
 from config import OPENROUTER_API_KEY
 from ai.prompts import PROMPT
 from ai.models import get_models
 
-
 URL = "https://openrouter.ai/api/v1/chat/completions"
+
+RETRY_STATUS = {
+    408,
+    409,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+}
 
 
 async def rewrite(article, analysis):
 
+    # Используем полный текст статьи, если удалось загрузить
+    content = article.get("content")
+
+    if not content:
+        content = article.get("summary", "")
+
     prompt = PROMPT.format(
         news=f"""
+Источник:
+{article.get("source", "")}
+
 Заголовок:
 {article["title"]}
 
-Описание:
-{article["summary"]}
+Полный текст статьи:
 
-========================
+{content}
+
+========================================
+
 АНАЛИЗ
-========================
+
+========================================
 
 Важность:
 {analysis.get("score", 5)}/10
@@ -45,72 +68,118 @@ async def rewrite(article, analysis):
 
         for model in get_models():
 
-            payload = {
-                "model": model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                "temperature": 0.6,
-                "max_tokens": 1200,
-            }
+            print("\n" + "=" * 60)
+            print(f"🤖 MODEL: {model}")
 
-            try:
+            for attempt in range(1, 4):
 
-                print("=" * 60)
-                print("MODEL:", model)
+                print(f"Попытка {attempt}/3")
 
-                response = await client.post(
-                    URL,
-                    headers=headers,
-                    json=payload,
-                )
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    "temperature": 0.55,
+                    "max_tokens": 1400,
+                }
 
-                print("STATUS:", response.status_code)
+                try:
 
-                if response.status_code == 429:
+                    response = await client.post(
+                        URL,
+                        headers=headers,
+                        json=payload,
+                    )
 
-                    print("Лимит модели. Пробуем следующую...")
-                    continue
+                    status = response.status_code
 
-                if response.status_code == 404:
+                    print(f"STATUS: {status}")
 
-                    print("Модель недоступна. Пробуем следующую...")
-                    continue
+                    if status == 200:
 
-                response.raise_for_status()
+                        data = response.json()
 
-                data = response.json()
+                        text = (
+                            data["choices"][0]["message"]
+                            .get("content", "")
+                            .strip()
+                        )
 
-                text = (
-                    data["choices"][0]["message"]
-                    .get("content", "")
-                    .strip()
-                )
+                        if not text:
 
-                if not text:
+                            print("Пустой ответ.")
 
-                    print("Пустой ответ.")
-                    continue
+                            await asyncio.sleep(2)
 
-                if text.upper() == "SKIP":
+                            continue
 
-                    return "SKIP"
+                        if text.upper() == "SKIP":
 
-                print("Использована модель:", model)
+                            return "SKIP"
 
-                return text
+                        print(f"✅ Использована модель {model}")
 
-            except Exception as e:
+                        return text
 
-                print("OPENROUTER ERROR")
-                print(model)
-                print(e)
+                    if status == 404:
 
-                continue
+                        print("Модель недоступна.")
 
-    print("Ни одна модель не ответила.")
+                        break
+
+                    if status in RETRY_STATUS:
+
+                        print("Временная ошибка.")
+
+                        if attempt < 3:
+
+                            wait = attempt * 5
+
+                            print(f"Повтор через {wait} сек.")
+
+                            await asyncio.sleep(wait)
+
+                            continue
+
+                        print("Лимит попыток для модели.")
+
+                        break
+
+                    print(response.text)
+
+                    break
+
+                except Exception as e:
+
+                    text = str(e)
+
+                    print(text)
+
+                    if (
+                        "No provider available" in text
+                        or "429" in text
+                    ):
+
+                        if attempt < 3:
+
+                            wait = attempt * 5
+
+                            print(f"Повтор через {wait} сек.")
+
+                            await asyncio.sleep(wait)
+
+                            continue
+
+                    break
+
+            print("➡ Переходим к следующей модели...")
+
+            await asyncio.sleep(3)
+
+    print("\n❌ Ни одна модель OpenRouter не ответила.")
 
     return "SKIP"

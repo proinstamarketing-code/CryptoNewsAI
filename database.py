@@ -1,59 +1,96 @@
-import os
 import sqlite3
+from pathlib import Path
 
-DB = "data/news.db"
+# Папка для базы данных
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+
+DB_PATH = DATA_DIR / "news.db"
 
 
 def get_connection():
-    os.makedirs("data", exist_ok=True)
-    return sqlite3.connect(DB)
+    return sqlite3.connect(DB_PATH)
 
 
 def init_db():
+    """Создает базу и таблицу при первом запуске."""
 
-    conn = get_connection()
-    cur = conn.cursor()
+    with get_connection() as conn:
 
-    cur.execute("""
+        cur = conn.cursor()
+
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS news (
-            link TEXT PRIMARY KEY,
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            link TEXT UNIQUE,
+
+            title TEXT,
+
+            category TEXT,
+
+            published_at TEXT,
+
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
         )
-    """)
+        """)
 
-    conn.commit()
-    conn.close()
-
-
-def exists(link):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT 1 FROM news WHERE link=? LIMIT 1",
-        (link,),
-    )
-
-    result = cur.fetchone()
-
-    conn.close()
-
-    return result is not None
+        conn.commit()
 
 
-def save(link):
+def exists(link: str) -> bool:
+    """Проверяем, публиковали ли уже новость."""
 
-    conn = get_connection()
-    cur = conn.cursor()
+    with get_connection() as conn:
 
-    cur.execute(
-        """
-        INSERT OR IGNORE INTO news(link)
-        VALUES(?)
-        """,
-        (link,),
-    )
+        cur = conn.cursor()
 
-    conn.commit()
-    conn.close()
+        cur.execute(
+            "SELECT 1 FROM news WHERE link = ?",
+            (link,)
+        )
+
+        return cur.fetchone() is not None
+
+
+def save(
+    link: str,
+    title: str = "",
+    category: str = "",
+    published_at: str = "",
+):
+    """Сохраняем опубликованную новость."""
+
+    with get_connection() as conn:
+
+        cur = conn.cursor()
+
+        cur.execute("""
+        INSERT OR IGNORE INTO news (
+            link,
+            title,
+            category,
+            published_at
+        )
+        VALUES (?, ?, ?, ?)
+        """, (
+            link,
+            title,
+            category,
+            published_at,
+        ))
+
+        conn.commit()
+
+
+def stats():
+
+    with get_connection() as conn:
+
+        cur = conn.cursor()
+
+        cur.execute("SELECT COUNT(*) FROM news")
+
+        return cur.fetchone()[0]

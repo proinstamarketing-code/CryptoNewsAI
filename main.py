@@ -1,6 +1,7 @@
 import asyncio
 
 from collectors.rss import get_news
+from collectors.article import load_article
 
 from database import (
     init_db,
@@ -17,7 +18,6 @@ from telegram_bot.bot import send_to_moderation
 
 async def main():
 
-    # Создаем БД и таблицу при каждом запуске
     init_db()
 
     news = get_news()
@@ -28,78 +28,111 @@ async def main():
 
         return
 
+    print(f"Получено новостей: {len(news)}")
+
     sent = 0
 
     for article in news:
 
-        if exists(article["link"]):
-
+        if not article.get("link"):
             continue
 
-        print("=" * 60)
+        if exists(article["link"]):
+            print("Уже опубликована.")
+            continue
+
+        print("=" * 70)
         print("Проверяем:", article["title"])
 
+        # -------------------------------------------------
+        # Загружаем полный текст статьи
+        # -------------------------------------------------
+
+        article["content"] = await load_article(
+            article["link"],
+            article["summary"],
+        )
+
+        print(
+            f"Длина статьи: {len(article['content'])} символов"
+        )
+
+        # -------------------------------------------------
         # Аналитик
+        # -------------------------------------------------
+
         analysis = analyze(article)
 
         if not analysis["publish"]:
 
-            print("⛔ Аналитик отклонил новость.")
+            print("⛔ Аналитик отклонил.")
 
-            save(article["link"])
+            save(
+                link=article["link"],
+                title=article.get("title", ""),
+                category=analysis.get("category", ""),
+                published_at=article.get("published", ""),
+            )
 
             continue
 
-        # Автор
+        print("✍ Генерация статьи...")
+
         text = await rewrite(article, analysis)
 
-        # Если OpenRouter недоступен — отправляем черновик
+        # -------------------------------------------------
+        # Если OpenRouter недоступен
+        # -------------------------------------------------
+
         if text == "SKIP":
 
-            print("⚠ OpenRouter недоступен. Отправляем черновик.")
+            print("⚠ OpenRouter недоступен.")
 
-            text = f"""
-⚠️ Черновик (ИИ временно недоступен)
+            text = f"""⚠️ <b>Черновик (ИИ временно недоступен)</b>
 
-📰 {article["title"]}
+📰 <b>{article['title']}</b>
 
-━━━━━━━━━━━━━━━━━━
+{article['summary']}
 
-{article["summary"]}
+📊 <b>Оценка:</b> {analysis.get("score",0)}/10
+📂 <b>Категория:</b> {analysis.get("category","Crypto")}
 
-━━━━━━━━━━━━━━━━━━
-
-📊 Оценка аналитика: {analysis.get("score", 0)}/10
-📂 Категория: {analysis.get("category", "Crypto")}
-
-🔗 Источник:
-{article["link"]}
+🔗 {article["link"]}
 """
 
-        # Редактор
-        text = await edit(text)
+        else:
 
-        if text == "SKIP":
+            print("📝 Редактор...")
 
-            print("📝 Редактор отклонил.")
+            edited = await edit(text)
 
-            save(article["link"])
+            if edited != "SKIP":
 
-            continue
+                text = edited
 
-        # Модерация
+            else:
+
+                print("Редактор недоступен. Используем текст автора.")
+
+        print("📨 Отправка на модерацию...")
+
         await send_to_moderation(text)
 
-        save(article["link"])
+        save(
+            link=article["link"],
+            title=article.get("title", ""),
+            category=analysis.get("category", ""),
+            published_at=article.get("published", ""),
+        )
 
         sent += 1
 
-        print("✅ Отправлено на модерацию.")
+        print("✅ Отправлено.")
 
         await asyncio.sleep(5)
 
-    print("=" * 60)
-    print(f"Готово. Отправлено новостей: {sent}")
+    print("=" * 70)
+    print(f"Готово. Отправлено: {sent}")
 
 
 if __name__ == "__main__":
